@@ -18,7 +18,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
         return res.text();
       })
       .then(text => {
-        const lines = text.split('\n')
+        const lines = text.split(/\r?\n/)
           .map(l => l.trim())
           .filter(l => l.length > 0 && !l.startsWith('#'));
         
@@ -46,6 +46,19 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     }
   }, [currentIndex, tracks]);
 
+  const currentTrack = tracks[currentIndex];
+  const isImage = currentTrack?.match(/\.(jpg|jpeg|png|gif|webp|bmp)($|\?)/i);
+  const isVideo = currentTrack?.match(/\.(mp4|webm|mov|ogg)($|\?)/i);
+
+  useEffect(() => {
+    if (isImage && currentIndex < tracks.length - 1) {
+      const timer = setTimeout(() => {
+        setCurrentIndex(currentIndex + 1);
+      }, 5000); // 5 секунд показа для картинок
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex, isImage, tracks.length]);
+
   if (error) {
     return <div className="text-red-500 text-sm p-4 bg-red-50 rounded-lg">{error}</div>;
   }
@@ -62,17 +75,12 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     try {
       const parts = url.split('/');
       const last = parts[parts.length - 1];
-      // Try to remove query params if any
       const cleanLast = last.split('?')[0];
       return decodeURIComponent(cleanLast);
     } catch {
       return url;
     }
   };
-
-  const currentTrack = tracks[currentIndex];
-  // Basic heuristic to detect video formats from URL
-  const isVideo = currentTrack?.match(/\.(mp4|webm|mov|ogg)($|\?)/i);
 
   return (
     <div className="bg-white border border-gray-100 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] p-5 rounded-2xl my-4 w-full font-sans">
@@ -87,7 +95,13 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
         </span>
       </div>
       
-      {isVideo ? (
+      {isImage ? (
+        <img 
+          src={currentTrack} 
+          className="w-full bg-black rounded-lg mb-4 h-auto aspect-video object-contain"
+          alt={getTrackName(currentTrack)}
+        />
+      ) : isVideo ? (
         <video 
           ref={mediaRef as React.RefObject<HTMLVideoElement>}
           src={currentTrack} 

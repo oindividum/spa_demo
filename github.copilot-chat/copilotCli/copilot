@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "/c/Users/HP/AppData/Roaming/Code/User/globalStorage/github.copilot-chat/copilotCli/copilot.bat" "$@"

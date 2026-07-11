@@ -47,8 +47,8 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
         const logicalFiles: any[] = await logicalFilesResponse.json();
         // console.log(`[getPostsForFidd] logicalFiles for ${messageNumber}:`, logicalFiles.map(f => f.filePath));
         const configFile = logicalFiles.find(f => {
-          const path = f.filePath?.toLowerCase();
-          return path === 'config.json' || path === '/config.json';
+          const path = f.filePath?.toLowerCase() || '';
+          return path === 'config.json' || path === '/config.json' || path.endsWith('/config.json');
         });
         if (!configFile) {
           // console.log(`[getPostsForFidd] config.json not found in message ${messageNumber}`);

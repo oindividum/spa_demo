@@ -12,6 +12,7 @@ const PostPage = () => {
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [collapsedDirs, setCollapsedDirs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
 
@@ -45,7 +46,7 @@ const PostPage = () => {
   const directoryPanel = post.files && post.files.length > 0 ? (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-8">
       <div className="flex items-center justify-between mb-4 pb-2">
-        <h3 className="text-xl font-medium text-black">Директория</h3>
+        <h3 className="text-xl font-medium text-black">/</h3>
         <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
         </svg>
@@ -68,26 +69,50 @@ const PostPage = () => {
                     <path d="M6 15h3" />
                   </svg>
                 </div>
-                <span className="text-sm font-medium text-black leading-snug break-words">{post.title}</span>
+                <span className="text-sm font-medium text-black leading-snug break-words">/</span>
               </div>
-              <svg className="w-5 h-5 text-black flex-shrink-0 ml-2 mt-0.5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-black flex-shrink-0 ml-2 mt-0.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </div>
           );
 
-          const childNodes = flatTree.map((node, index) => {
+          const toggleDirectory = (path: string, e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setCollapsedDirs(prev => ({
+              ...prev,
+              [path]: !prev[path]
+            }));
+          };
+
+          const visibleNodes = flatTree.filter(node => {
+            const pathParts = node.path.split('/');
+            for (let i = 1; i < pathParts.length; i++) {
+              const parentPath = pathParts.slice(0, i).join('/');
+              if (collapsedDirs[parentPath]) {
+                return false; 
+              }
+            }
+            return true;
+          });
+
+          const childNodes = visibleNodes.map((node, index) => {
             const fileUrl = node.isDirectory ? '#' : `/fidds/v1/${fiddId}/${messageNumber}/${encodeURIComponent(node.path)}`;
+            const isCollapsed = collapsedDirs[node.path];
+
             return (
               <a 
                 key={`${node.path}-${index}`} 
                 href={fileUrl} 
                 target={node.isDirectory ? undefined : "_blank"} 
                 rel={node.isDirectory ? undefined : "noopener noreferrer"}
-                className={`flex text-left items-start justify-between group hover:bg-gray-50 p-2 rounded-xl transition-colors ${node.isDirectory ? 'cursor-default' : ''}`}
+                className={`flex text-left items-start justify-between group hover:bg-gray-50 p-2 rounded-xl transition-colors ${node.isDirectory ? 'cursor-pointer' : ''}`}
                 style={{ marginLeft: `${(node.depth + 1) * 16}px` }}
                 onClick={(e) => {
-                  if (node.isDirectory) e.preventDefault();
+                  if (node.isDirectory) {
+                    toggleDirectory(node.path, e);
+                  }
                 }}
               >
                 <div className="flex items-start gap-3 overflow-hidden">
@@ -110,7 +135,13 @@ const PostPage = () => {
                   <span className="text-sm font-medium text-black leading-snug break-words">{node.name}</span>
                 </div>
                 {node.isDirectory && (
-                  <svg className="w-5 h-5 text-black flex-shrink-0 ml-2 mt-0.5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <svg 
+                    className={`w-5 h-5 text-black flex-shrink-0 ml-2 mt-0.5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="1.5" 
+                    viewBox="0 0 24 24"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 )}
@@ -168,16 +199,55 @@ const PostPage = () => {
           <span>●</span>
           <span>{post.createdAt}</span>
         </div>
+
+        {m3uFile && (
+          <div className="mb-8">
+            <PlaylistPlayer 
+              m3uUrl={`/fidds/v1/${fiddId}/${messageNumber}/${encodeURIComponent(m3uFile)}`} 
+              basePath={`/fidds/v1/${fiddId}/${messageNumber}`} 
+            />
+          </div>
+        )}
         
         <div className="prose max-w-none break-words overflow-hidden">
           <ReactMarkdown 
-          
+            urlTransform={(url) => url}
             remarkPlugins={[remarkGfm]}
             components={{
             p: ({node, children, ...props}) => <div className="my-2" {...props}>{children}</div>,
             h4: ({node, children, ...props}) => <div className="text-[18px] font-medium text-black tracking-tight" {...props}>{children}</div>,
             pre: ({node, ...props}) => <pre className="whitespace-pre-wrap break-words overflow-x-auto bg-gray-100 p-4 rounded-lg my-4" {...props} />,
+            a: ({node, href, children, ...props}) => {
+              console.log('[Markdown a] href:', href);
+              if (!href) return <a {...props}>{children}</a>;
+              let fullHref = href;
+              if (!href.startsWith('http')) {
+                fullHref = `/fidds/v1/${fiddId}/${messageNumber}/${encodeURIComponent(href)}`;
+              }
+              const cleanHref = href.split('?')[0];
+              const ext = cleanHref.split('.').pop()?.toLowerCase();
+              console.log('[Markdown a] resolved ext:', ext, 'fullHref:', fullHref);
+              if (ext === 'm3u') {
+                return <PlaylistPlayer m3uUrl={fullHref} basePath={`/fidds/v1/${fiddId}/${messageNumber}`} />;
+              }
+              if (ext === 'mp4' || ext === 'webm' || ext === 'ogg' || ext === 'mov') {
+                return (
+                  <div className="my-4 rounded-lg overflow-hidden bg-black">
+                    <video controls src={fullHref} className="w-full h-auto" />
+                  </div>
+                );
+              }
+              if (ext === 'mp3' || ext === 'wav') {
+                return (
+                  <div className="my-4">
+                    <audio controls src={fullHref} className="w-full" />
+                  </div>
+                );
+              }
+              return <a href={fullHref} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" {...props}>{children}</a>;
+            },
             img: ({node, src, alt, ...props}) => {
+              console.log('[Markdown img] src:', src, 'alt:', alt);
               if (!src) return null;
               
               let fullSrc = src;
@@ -187,6 +257,7 @@ const PostPage = () => {
 
               const cleanSrc = src.split('?')[0];
               const ext = cleanSrc.split('.').pop()?.toLowerCase();
+              console.log('[Markdown img] resolved ext:', ext, 'fullSrc:', fullSrc);
                 if (ext === 'm3u') {
                   return (
                     <PlaylistPlayer 

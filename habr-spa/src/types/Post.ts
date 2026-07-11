@@ -9,6 +9,6 @@ export interface Post {
     tags: string[];
     views: number;
     imageUrl?: string; // url обложки поста
-    files: string[];
+    files: string[]; 
 }
 

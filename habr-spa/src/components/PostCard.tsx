@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { Post } from '../types/Post';
 import { buildFlatTree } from '../utils/fileTree';
+import { PlaylistPlayer } from './PlaylistPlayer';
 
 interface PostCardProps {
     post: Post;
@@ -37,7 +38,7 @@ const PostCard = ({ post }: PostCardProps) => {
       className="mt-4 bg-white rounded-[16px] shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] border border-gray-100 p-5 font-sans"
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[20px] font-medium text-black tracking-tight">Директория</h3>
+        <h3 className="text-[20px] font-medium text-black tracking-tight">{post.title || '/'}</h3>
         <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
         </svg>

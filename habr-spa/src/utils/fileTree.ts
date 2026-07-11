@@ -8,26 +8,49 @@ export interface FileNode {
 export function buildFlatTree(filePaths: string[]): FileNode[] {
   const rootNodes: any[] = [];
   
-  for (const filePath of filePaths) {
+  const cleanPaths = filePaths.filter(p => !p.includes('.DS_Store'));
+  
+  for (const filePath of cleanPaths) {
     const parts = filePath.split('/');
     let currentLevel = rootNodes;
+    let currentPath = '';
+
     for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
         if (!part) continue;
+        
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
         const isLast = i === parts.length - 1;
-        let existingNode = currentLevel.find(n => n.name === part);
+        
+        let existingNode = currentLevel.find((n: any) => n.name === part);
         if (!existingNode) {
             existingNode = {
                 name: part,
-                path: filePath,
+                path: currentPath,
                 isDirectory: !isLast,
                 children: []
             };
             currentLevel.push(existingNode);
+        } else if (isLast) {
+            existingNode.isDirectory = false;
         }
         currentLevel = existingNode.children;
     }
   }
+
+  function sortNodes(nodes: any[]) {
+    nodes.sort((a, b) => {
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
+        return a.name.localeCompare(b.name);
+    });
+    for (const node of nodes) {
+        if (node.children && node.children.length > 0) {
+            sortNodes(node.children);
+        }
+    }
+  }
+  sortNodes(rootNodes);
 
   const result: FileNode[] = [];
   function traverse(nodes: any[], depth: number) {

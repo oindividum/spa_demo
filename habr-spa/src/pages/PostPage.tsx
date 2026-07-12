@@ -56,27 +56,6 @@ const PostPage = () => {
         {(() => {
           const flatTree = buildFlatTree(post.files || []);
 
-          const rootNode = (
-            <div 
-              key="root"
-              className="flex text-left items-start justify-between group hover:bg-gray-50 p-2 rounded-xl transition-colors cursor-default"
-            >
-              <div className="flex items-start gap-3 overflow-hidden">
-                <div className="text-black flex-shrink-0 mt-0.5">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="6" width="18" height="12" rx="3" fill="transparent" />
-                    <path d="M3 12h18" />
-                    <path d="M6 15h3" />
-                  </svg>
-                </div>
-                <span className="text-sm font-medium text-black leading-snug break-words">/</span>
-              </div>
-              <svg className="w-5 h-5 text-black flex-shrink-0 ml-2 mt-0.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          );
-
           const toggleDirectory = (path: string, e: React.MouseEvent) => {
             e.preventDefault();
             e.stopPropagation();
@@ -149,7 +128,7 @@ const PostPage = () => {
             );
           });
 
-          return [rootNode, ...childNodes];
+          return childNodes;
         })()}
       </div>
       

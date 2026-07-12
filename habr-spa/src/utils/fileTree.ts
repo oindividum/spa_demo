@@ -11,7 +11,8 @@ export function buildFlatTree(filePaths: string[]): FileNode[] {
   const cleanPaths = filePaths.filter(p => !p.includes('.DS_Store'));
   
   for (const filePath of cleanPaths) {
-    const parts = filePath.split('/');
+    let normalizedPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+    const parts = normalizedPath.split('/').filter(Boolean);
     let currentLevel = rootNodes;
     let currentPath = '';
 

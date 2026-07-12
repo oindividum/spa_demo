@@ -18,7 +18,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
         return res.text();
       })
       .then(text => {
-        const lines = text.split(/\r?\n/)
+        const lines = text.split('\n')
           .map(l => l.trim())
           .filter(l => l.length > 0 && !l.startsWith('#'));
         
@@ -40,15 +40,28 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       });
   }, [m3uUrl, basePath]);
 
-  useEffect(() => {
-    if (mediaRef.current && currentIndex > 0) {
-      mediaRef.current.play().catch(e => console.log('Autoplay prevented', e));
+  const getTrackName = (url: string) => {
+    try {
+      const parts = url.split('/');
+      const last = parts[parts.length - 1];
+      // Try to remove query params if any
+      const cleanLast = last.split('?')[0];
+      return decodeURIComponent(cleanLast);
+    } catch {
+      return url;
     }
-  }, [currentIndex, tracks]);
+  };
+
+  const handleEnded = () => {
+    if (currentIndex < tracks.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
 
   const currentTrack = tracks[currentIndex];
-  const isImage = currentTrack?.match(/\.(jpg|jpeg|png|gif|webp|bmp)($|\?)/i);
+  // Basic heuristic to detect video formats from URL
   const isVideo = currentTrack?.match(/\.(mp4|webm|mov|ogg)($|\?)/i);
+  const isImage = currentTrack?.match(/\.(jpg|jpeg|png|gif|webp|bmp)($|\?)/i);
 
   useEffect(() => {
     if (isImage && currentIndex < tracks.length - 1) {
@@ -64,23 +77,6 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   }
 
   if (tracks.length === 0) return null;
-
-  const handleEnded = () => {
-    if (currentIndex < tracks.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  const getTrackName = (url: string) => {
-    try {
-      const parts = url.split('/');
-      const last = parts[parts.length - 1];
-      const cleanLast = last.split('?')[0];
-      return decodeURIComponent(cleanLast);
-    } catch {
-      return url;
-    }
-  };
 
   return (
     <div className="bg-white border border-gray-100 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] p-5 rounded-2xl my-4 w-full font-sans">
@@ -106,6 +102,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
           ref={mediaRef as React.RefObject<HTMLVideoElement>}
           src={currentTrack} 
           controls 
+          autoPlay
           onEnded={handleEnded}
           className="w-full bg-black rounded-lg mb-4 h-auto aspect-video object-contain"
         />
@@ -114,6 +111,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
           ref={mediaRef as React.RefObject<HTMLAudioElement>}
           src={currentTrack} 
           controls 
+          autoPlay
           onEnded={handleEnded}
           className="w-full mb-4 outline-none"
         />

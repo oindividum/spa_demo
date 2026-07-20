@@ -111,6 +111,17 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     }
   };
 
+  const playTrackAtIndex = (index: number) => {
+    setCurrentIndex(index);
+    const mediaEl = mediaRef.current;
+    if (mediaEl) {
+      // Use a timeout to ensure the new src is loaded before playing
+      setTimeout(() => {
+        mediaEl.play().catch((e) => console.error("Playback failed", e));
+      }, 150);
+    }
+  };
+
   const currentTrack = tracks[currentIndex];
   const isVideo = currentTrack?.match(/\.(mp4|webm|mov|ogg)($|\?)/i);
   const isImage = currentTrack?.match(/\.(jpg|jpeg|png|gif|webp|bmp)($|\?)/i);
@@ -274,7 +285,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
             src={currentTrack}
             controls
-            autoPlay
+            controlsList="nofullscreen"
             onEnded={handleEnded}
             className="w-full h-full object-contain relative z-10"
             crossOrigin="anonymous"
@@ -337,7 +348,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
                   className={`p-3 cursor-pointer rounded-xl mb-2 flex items-center gap-3 transition-colors ${
                     isActive ? 'bg-white/20' : 'hover:bg-white/10'
                   }`}
-                  onClick={() => setCurrentIndex(i)}
+                  onClick={() => playTrackAtIndex(i)}
                 >
                   <div className="flex-shrink-0">
                     {isActive ? (
@@ -366,7 +377,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
                 className={`p-2.5 cursor-pointer rounded-xl mb-1 flex items-center gap-3 transition-colors ${
                   isActive ? 'bg-blue-50/50' : 'hover:bg-gray-50'
                 }`}
-                onClick={() => setCurrentIndex(i)}
+                onClick={() => playTrackAtIndex(i)}
               >
                 <div className="flex-shrink-0">
                   {isActive ? (

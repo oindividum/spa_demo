@@ -46,7 +46,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     let timeout: ReturnType<typeof setTimeout>;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (e.clientX < 80) {
+      if (e.clientX > window.innerWidth - 120) {
         setShowOverlayMenu(true);
       }
 
@@ -323,8 +323,8 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
         {isFullscreen && (
           <div
             onMouseLeave={() => setShowOverlayMenu(false)}
-            className={`absolute top-0 left-0 bottom-0 w-80 bg-black/80 backdrop-blur-md border-r border-white/10 p-4 transition-transform duration-300 ease-in-out z-40 overflow-y-auto custom-scrollbar ${
-              showOverlayMenu ? 'translate-x-0' : '-translate-x-full'
+            className={`absolute top-4 right-4 bottom-24 w-80 bg-black/55 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl p-4 transition-transform duration-300 ease-in-out z-40 overflow-y-auto custom-scrollbar ${
+              showOverlayMenu ? 'translate-x-0' : 'translate-x-full'
             }`}
           >
             <div className="flex items-center justify-between text-white/90 font-medium mb-4 pb-2 border-b border-white/10">
@@ -335,7 +335,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
                 title="Скрыть панель"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 18l-6-6 6-6" />
+                  <path d="M9 18l6-6-6-6" />
                 </svg>
               </button>
             </div>

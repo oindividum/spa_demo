@@ -65,70 +65,116 @@ const PostPage = () => {
             }));
           };
 
-          const visibleNodes = flatTree.filter(node => {
-            const pathParts = node.path.split('/');
-            for (let i = 1; i < pathParts.length; i++) {
-              const parentPath = pathParts.slice(0, i).join('/');
-              if (collapsedDirs[parentPath]) {
-                return false; 
-              }
-            }
-            return true;
+          type TreeNode = {
+            name: string;
+            path: string;
+            isDirectory: boolean;
+            depth: number;
+            children: TreeNode[];
+          };
+
+          const nodeByPath = new Map<string, TreeNode>();
+          const rootNodes: TreeNode[] = [];
+
+          flatTree.forEach((node) => {
+            nodeByPath.set(node.path, { ...node, children: [] });
           });
 
-          const childNodes = visibleNodes.map((node, index) => {
-            const fileUrl = node.isDirectory ? '#' : `/fidds/v1/${fiddId}/${messageNumber}/${encodeURIComponent(node.path)}`;
-            const isCollapsed = collapsedDirs[node.path];
+          flatTree.forEach((node) => {
+            const current = nodeByPath.get(node.path);
+            if (!current) return;
 
-            return (
-              <a 
-                key={`${node.path}-${index}`} 
-                href={fileUrl} 
-                target={node.isDirectory ? undefined : "_blank"} 
-                rel={node.isDirectory ? undefined : "noopener noreferrer"}
-                className={`flex text-left items-start justify-between group hover:bg-gray-50 p-2 rounded-xl transition-colors ${node.isDirectory ? 'cursor-pointer' : ''}`}
-                style={{ marginLeft: `${(node.depth + 1) * 16}px` }}
-                onClick={(e) => {
-                  if (node.isDirectory) {
-                    toggleDirectory(node.path, e);
-                  }
-                }}
-              >
-                <div className="flex items-start gap-3 overflow-hidden">
-                  <div className="text-black flex-shrink-0 mt-0.5">
-                    {node.isDirectory ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="6" width="18" height="12" rx="3" fill="transparent" />
-                        <path d="M3 12h18" />
-                        <path d="M6 15h3" />
-                      </svg>
-                    ) : (
+            const lastSlash = node.path.lastIndexOf('/');
+            if (lastSlash === -1) {
+              rootNodes.push(current);
+              return;
+            }
+
+            const parentPath = node.path.slice(0, lastSlash);
+            const parent = nodeByPath.get(parentPath);
+            if (parent) {
+              parent.children.push(current);
+            } else {
+              rootNodes.push(current);
+            }
+          });
+
+          const depthBgClass: Record<number, string> = {
+            0: 'bg-gray-50',
+            1: 'bg-gray-100',
+            2: 'bg-gray-200',
+            3: 'bg-gray-300',
+            4: 'bg-gray-400'
+          };
+
+          const renderNode = (node: TreeNode) => {
+            const fileUrl = `/fidds/v1/${fiddId}/${messageNumber}/${encodeURIComponent(node.path)}`;
+
+            if (!node.isDirectory) {
+              return (
+                <a
+                  key={node.path}
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex text-left items-start justify-between group hover:bg-gray-50 p-2 rounded-xl transition-colors"
+                >
+                  <div className="flex items-start gap-3 overflow-hidden">
+                    <div className="text-black flex-shrink-0 mt-0.5">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M14 3v4a1 1 0 0 0 1 1h4" />
                         <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
                         <path d="M9 13h6" />
                         <path d="M9 17h3" />
                       </svg>
-                    )}
+                    </div>
+                    <span className="text-sm font-medium text-black leading-snug break-words">{node.name}</span>
                   </div>
-                  <span className="text-sm font-medium text-black leading-snug break-words">{node.name}</span>
-                </div>
-                {node.isDirectory && (
-                  <svg 
-                    className={`w-5 h-5 text-black flex-shrink-0 ml-2 mt-0.5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="1.5" 
+                </a>
+              );
+            }
+
+            const isCollapsed = !!collapsedDirs[node.path];
+            const depthClass = depthBgClass[Math.min(node.depth, 4)] ?? 'bg-gray-400';
+
+            return (
+              <div key={node.path} className={`rounded-xl p-2 ${depthClass}`}>
+                <a
+                  href="#"
+                  className="flex text-left items-start justify-between group p-2 rounded-xl transition-colors cursor-pointer hover:bg-black/5"
+                  onClick={(e) => toggleDirectory(node.path, e)}
+                >
+                  <div className="flex items-start gap-3 overflow-hidden">
+                    <div className="text-black flex-shrink-0 mt-0.5">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="6" width="18" height="12" rx="3" fill="transparent" />
+                        <path d="M3 12h18" />
+                        <path d="M6 15h3" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium text-black leading-snug break-words">{node.name}</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-black flex-shrink-0 ml-2 mt-0.5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
                     viewBox="0 0 24 24"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
-                )}
-              </a>
-            );
-          });
+                </a>
 
-          return childNodes;
+                {!isCollapsed && node.children.length > 0 && (
+                  <div className="mt-1 pl-3 space-y-1">
+                    {node.children.map((child) => renderNode(child))}
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          return rootNodes.map((node) => renderNode(node));
         })()}
       </div>
       

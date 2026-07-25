@@ -131,12 +131,6 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
 
   const playTrackAtIndex = (index: number) => {
     setCurrentIndex(index);
-    const mediaEl = mediaRef.current;
-    if (mediaEl) {
-      setTimeout(() => {
-        mediaEl.play().catch((e) => console.error("Playback failed", e));
-      }, 150);
-    }
   };
 
   const currentTrack = tracks[currentIndex];

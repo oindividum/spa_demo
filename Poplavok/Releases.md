@@ -1,0 +1,64 @@
+```
+July 06, 2026
+Poplavok-1.0.9-portable-linux.zip
+88059317
+SHA2-256(Poplavok-1.0.9-portable-linux.zip)= d3bba6eb0c3b7ad4a7f13bb66040570f85fb172f4f0d594f951ccd178ec77dc6
+Poplavok-1.0.9-portable-macos.zip
+83628616
+1d73f8a4266420001a31b385833901cb5e1df5e4ae0c59657b804ca7645f1e7e  
+Poplavok-1.0.9-portable-windows.zip
+84394492
+7613CBB1A014E7317095C6FF822FEF9ED7209ADECA536C8E310C965828834E9E
+```
+
+```
+July 03, 2026
+Poplavok-1.0.8-portable-linux.zip
+88059338
+SHA2-256(Poplavok-1.0.8-portable-linux.zip)= d21bfdfc24d344f5a26e8f92f6b21dcc061366f4e8be135cf6d6a1c2a696024d
+Poplavok-1.0.8-portable-macos.zip
+83628676
+be50c5dba3a56ca1dc21d7f0a3346017bb1bd02deb7bd2311a24f3f9b96fee24  Poplavok-1.0.8-portable-macos.zip
+Poplavok-1.0.8-portable-windows.zip
+84394497
+EB4EC30B2A4CE810B391005E7A5124D0CC34AF6169293DD9F7754D4F8F468D6D
+```
+
+```
+July 03, 2026
+Poplavok-1.0.7-portable-linux.zip
+88059157
+SHA2-256= 5f2c1e2b913d611e01f105b9ef23d6201d4835e7e4b378f5f8f3579964735a57
+Poplavok-1.0.7-portable-macos.zip
+83490219
+40bb841c2489693f7a8b7e53209704fe30ed11159fe67041cce35828ff2d6609
+Poplavok-1.0.7-portable-windows.zip
+84394093
+3FD039AE481D2EF99072536D69F16CD65B4081E501EBC61225E5CB6146855713
+```
+
+```
+July 03, 2026
+Poplavok-1.0.6-portable-linux.zip
+88059319
+SHA2-256= e020c87c89ed96aaf13a57e6ff19004c8784475b5dbdf3c2b620be4d0237c7c5
+Poplavok-1.0.6-portable-macos.zip
+83628413
+bc4c3e9d682e4812ca0f311a3314fcb7146d48d6caa8e9121e59df6bf460de68
+Poplavok-1.0.6-portable-windows.zip
+84394052 
+E4DBF079560267AFB3E364A8CB2C0C5CDBAFD67D802D7B7E5C95BFC9E5CE2892
+```
+
+```
+July 03, 2026
+Poplavok-1.0.5-portable-linux.zip
+88058876
+SHA2-256= be4f89b938934628dbc41cc9d22395334dd091fcdf3966e2005e858237fff3a1
+Poplavok-1.0.5-portable-macos.zip
+83628301
+c5074102e59f0ad8a2620ae78b8410098120dcaba0f91ab3331aad9191a5e59f
+Poplavok-1.0.5-portable-windows.zip
+84393650
+23E39AE018E9179D26CC00F7CDB8F691D7B830B8FCDBE9D8888D92E37DDA9851
+```

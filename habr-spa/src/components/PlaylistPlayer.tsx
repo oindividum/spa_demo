@@ -15,6 +15,11 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showOverlayMenu, setShowOverlayMenu] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -111,11 +116,23 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     }
   };
 
+  const hasPrevious = currentIndex > 0;
+  const hasNext = currentIndex < tracks.length - 1;
+
+  const handlePrevious = () => {
+    if (!hasPrevious) return;
+    playTrackAtIndex(currentIndex - 1);
+  };
+
+  const handleNext = () => {
+    if (!hasNext) return;
+    playTrackAtIndex(currentIndex + 1);
+  };
+
   const playTrackAtIndex = (index: number) => {
     setCurrentIndex(index);
     const mediaEl = mediaRef.current;
     if (mediaEl) {
-      // Use a timeout to ensure the new src is loaded before playing
       setTimeout(() => {
         mediaEl.play().catch((e) => console.error("Playback failed", e));
       }, 150);
@@ -126,6 +143,50 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   const isVideo = currentTrack?.match(/\.(mp4|webm|mov|ogg)($|\?)/i);
   const isImage = currentTrack?.match(/\.(jpg|jpeg|png|gif|webp|bmp)($|\?)/i);
   const currentType = isVideo ? 'video' : isImage ? 'image' : 'audio';
+  const isPlayableMedia = currentType === 'video' || currentType === 'audio';
+
+  const formatTime = (timeInSec: number) => {
+    if (!Number.isFinite(timeInSec) || timeInSec < 0) return '0:00';
+    const mins = Math.floor(timeInSec / 60);
+    const secs = Math.floor(timeInSec % 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const togglePlayPause = () => {
+    const mediaEl = mediaRef.current;
+    if (!mediaEl || currentType === 'image') return;
+
+    if (mediaEl.paused) {
+      mediaEl.play().catch((e) => console.error('Playback failed', e));
+    } else {
+      mediaEl.pause();
+    }
+  };
+
+  const handleSeek = (value: number) => {
+    const mediaEl = mediaRef.current;
+    if (!mediaEl || !Number.isFinite(duration) || duration <= 0 || currentType === 'image') return;
+    mediaEl.currentTime = value;
+    setCurrentTime(value);
+  };
+
+  const handleVolumeChange = (value: number) => {
+    const mediaEl = mediaRef.current;
+    setVolume(value);
+    if (!mediaEl) return;
+    mediaEl.volume = value;
+    const shouldMute = value === 0;
+    mediaEl.muted = shouldMute;
+    setIsMuted(shouldMute);
+  };
+
+  const toggleMute = () => {
+    const mediaEl = mediaRef.current;
+    if (!mediaEl) return;
+    const nextMuted = !mediaEl.muted;
+    mediaEl.muted = nextMuted;
+    setIsMuted(nextMuted);
+  };
 
   useEffect(() => {
     if (isImage && currentIndex < tracks.length - 1) {
@@ -135,6 +196,42 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       return () => clearTimeout(timer);
     }
   }, [currentIndex, isImage, tracks.length]);
+
+  useEffect(() => {
+    const mediaEl = mediaRef.current;
+    if (!mediaEl || currentType === 'image') {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+      return;
+    }
+
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onTimeUpdate = () => setCurrentTime(mediaEl.currentTime || 0);
+    const onLoadedMetadata = () => {
+      setDuration(Number.isFinite(mediaEl.duration) ? mediaEl.duration : 0);
+      setCurrentTime(mediaEl.currentTime || 0);
+      setVolume(mediaEl.volume);
+      setIsMuted(mediaEl.muted);
+    };
+
+    mediaEl.addEventListener('play', onPlay);
+    mediaEl.addEventListener('pause', onPause);
+    mediaEl.addEventListener('timeupdate', onTimeUpdate);
+    mediaEl.addEventListener('loadedmetadata', onLoadedMetadata);
+    mediaEl.addEventListener('durationchange', onLoadedMetadata);
+
+    onLoadedMetadata();
+
+    return () => {
+      mediaEl.removeEventListener('play', onPlay);
+      mediaEl.removeEventListener('pause', onPause);
+      mediaEl.removeEventListener('timeupdate', onTimeUpdate);
+      mediaEl.removeEventListener('loadedmetadata', onLoadedMetadata);
+      mediaEl.removeEventListener('durationchange', onLoadedMetadata);
+    };
+  }, [currentTrack, currentType]);
 
   useEffect(() => {
     const videoEl =
@@ -214,7 +311,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       ref={containerRef}
       className={`bg-white font-sans ${
         isFullscreen
-          ? 'fixed inset-0 z-50 flex items-center justify-center bg-black'
+          ? 'fixed inset-0 z-50 flex flex-col bg-black'
           : 'border border-gray-100 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] p-5 rounded-2xl my-4 w-full'
       }`}
     >
@@ -246,8 +343,8 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       <div
         className={`relative ${
           isFullscreen
-            ? 'w-full h-full'
-            : 'w-full bg-black rounded-lg mb-4 aspect-video overflow-hidden flex items-center justify-center'
+            ? 'w-full flex-1 min-h-0'
+            : 'w-full bg-black rounded-t-lg aspect-video overflow-hidden flex items-center justify-center'
         }`}
       >
         {currentType !== 'audio' && (
@@ -256,21 +353,6 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
             className="absolute inset-0 w-full h-full object-cover filter blur-2xl brightness-50 scale-110 pointer-events-none"
           />
         )}
-
-        <button
-          onClick={toggleFullscreen}
-          className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/80 rounded-lg text-white transition-colors backdrop-blur-sm"
-        >
-          {isFullscreen ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-            </svg>
-          )}
-        </button>
 
         {isImage ? (
           <img
@@ -284,8 +366,6 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
           <video
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
             src={currentTrack}
-            controls
-            controlsList="nofullscreen"
             onEnded={handleEnded}
             className="w-full h-full object-contain relative z-10"
             crossOrigin="anonymous"
@@ -308,22 +388,19 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
               <circle cx="18" cy="16" r="3" />
             </svg>
 
-            <div className={`absolute left-0 right-0 px-8 flex justify-center z-10 w-full ${isFullscreen ? 'bottom-16' : 'bottom-4'}`}>
-              <audio
-                ref={mediaRef as React.RefObject<HTMLAudioElement>}
-                src={currentTrack}
-                controls
-                onEnded={handleEnded}
-                className={`outline-none ${isFullscreen ? 'w-1/2' : 'w-full'}`}
-              />
-            </div>
+            <audio
+              ref={mediaRef as React.RefObject<HTMLAudioElement>}
+              src={currentTrack}
+              onEnded={handleEnded}
+              className="hidden"
+            />
           </div>
         )}
 
         {isFullscreen && (
           <div
             onMouseLeave={() => setShowOverlayMenu(false)}
-            className={`absolute top-4 right-4 bottom-24 w-80 bg-black/55 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl p-4 transition-transform duration-300 ease-in-out z-40 overflow-y-auto custom-scrollbar ${
+            className={`absolute top-4 right-4 bottom-4 w-80 bg-black/55 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl p-4 transition-transform duration-300 ease-in-out z-40 overflow-y-auto custom-scrollbar ${
               showOverlayMenu ? 'translate-x-0' : 'translate-x-full'
             }`}
           >
@@ -367,28 +444,175 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
         )}
       </div>
 
+      <div
+        className={`flex items-center gap-2 ${
+          isFullscreen
+            ? 'w-full px-4 py-3 border-t border-white/10 bg-black/85 text-white'
+            : 'px-3 py-2 bg-gray-100 border border-gray-200 rounded-b-xl text-gray-900'
+        }`}
+      >
+        {tracks.length > 1 && (
+          <button
+            onClick={handlePrevious}
+            disabled={!hasPrevious}
+            title="Предыдущий файл"
+            className={`p-2 rounded border transition-colors ${
+              hasPrevious
+                ? isFullscreen
+                  ? 'bg-white/10 hover:bg-white/20 border-white/20'
+                  : 'bg-white hover:bg-gray-200 border-gray-300'
+                : isFullscreen
+                ? 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed'
+                : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        )}
+
+        <button
+          onClick={togglePlayPause}
+          disabled={!isPlayableMedia}
+          title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+          className={`p-2 rounded border transition-colors ${
+            isPlayableMedia
+              ? isFullscreen
+                ? 'bg-white/10 hover:bg-white/20 border-white/20'
+                : 'bg-white hover:bg-gray-200 border-gray-300'
+              : isFullscreen
+              ? 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed'
+              : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          {isPlaying ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" /><rect x="14" y="5" width="4" height="14" /></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+          )}
+        </button>
+
+        {tracks.length > 1 && (
+          <button
+            onClick={handleNext}
+            disabled={!hasNext}
+            title="Следующий файл"
+            className={`p-2 rounded border transition-colors ${
+              hasNext
+                ? isFullscreen
+                  ? 'bg-white/10 hover:bg-white/20 border-white/20'
+                  : 'bg-white hover:bg-gray-200 border-gray-300'
+                : isFullscreen
+                ? 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed'
+                : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        )}
+
+        <div className={`text-xs tabular-nums w-24 text-center ${isFullscreen ? 'text-white/80' : 'text-gray-700'}`}>
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </div>
+
+        <input
+          type="range"
+          min={0}
+          max={duration > 0 ? duration : 0}
+          step={0.1}
+          value={duration > 0 ? Math.min(currentTime, duration) : 0}
+          onChange={(e) => handleSeek(Number(e.target.value))}
+          disabled={!isPlayableMedia || duration <= 0}
+          className="flex-1 accent-blue-500 disabled:opacity-40"
+          title="Прогресс"
+        />
+
+        <button
+          onClick={toggleMute}
+          disabled={!isPlayableMedia}
+          title={isMuted ? 'Включить звук' : 'Выключить звук'}
+          className={`p-2 rounded border transition-colors ${
+            isPlayableMedia
+              ? isFullscreen
+                ? 'bg-white/10 hover:bg-white/20 border-white/20'
+                : 'bg-white hover:bg-gray-200 border-gray-300'
+              : isFullscreen
+              ? 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed'
+              : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          {isMuted || volume === 0 ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <line x1="23" y1="9" x2="17" y2="15" />
+              <line x1="17" y1="9" x2="23" y2="15" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+            </svg>
+          )}
+        </button>
+
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={isMuted ? 0 : volume}
+          onChange={(e) => handleVolumeChange(Number(e.target.value))}
+          disabled={!isPlayableMedia}
+          className="w-24 accent-green-500 disabled:opacity-40"
+          title="Громкость"
+        />
+
+        <button
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'}
+          className={`p-2 rounded border transition-colors ${
+            isFullscreen
+              ? 'bg-white/10 hover:bg-white/20 border-white/20'
+              : 'bg-white hover:bg-gray-200 border-gray-300'
+          }`}
+        >
+          {isFullscreen ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+          )}
+        </button>
+      </div>
+
       {!isFullscreen && (
-        <div className="max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+        <div className="mt-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar -mx-2 px-2">
           {tracks.map((track, i) => {
             const isActive = i === currentIndex;
             return (
               <div
                 key={i}
-                className={`p-2.5 cursor-pointer rounded-xl mb-1 flex items-center gap-3 transition-colors ${
-                  isActive ? 'bg-blue-50/50' : 'hover:bg-gray-50'
+                className={`p-2.5 cursor-pointer rounded-lg mb-1 flex items-center gap-3 transition-colors ${
+                  isActive ? 'bg-blue-50/50' : 'hover:bg-gray-50 text-gray-700'
                 }`}
                 onClick={() => playTrackAtIndex(i)}
               >
                 <div className="flex-shrink-0">
                   {isActive ? (
-                    <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-                      <div className="w-2 h-2 bg-white rounded-full" />
+                    <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full" />
                     </div>
                   ) : (
                     <div className="w-5 h-5 rounded-full border-2 border-gray-300 hover:border-gray-400 transition-colors" />
                   )}
                 </div>
-                <span className={`text-[14px] leading-snug truncate ${isActive ? 'text-black font-semibold' : 'text-gray-700 font-medium'}`}>
+                <span className={`text-[14px] leading-snug truncate font-medium`}>
                   {getTrackName(track)}
                 </span>
               </div>

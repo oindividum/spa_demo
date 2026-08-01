@@ -11,6 +11,9 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   const mediaRef = useRef<HTMLMediaElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const imageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const imageElapsedRef = useRef<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showOverlayMenu, setShowOverlayMenu] = useState(false);
@@ -20,6 +23,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [imageCountdown, setImageCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -110,8 +114,11 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     }
   };
 
+  const autoAdvanceRef = useRef(false);
+
   const handleEnded = () => {
     if (currentIndex < tracks.length - 1) {
+      autoAdvanceRef.current = true;
       setCurrentIndex(currentIndex + 1);
     }
   };
@@ -130,14 +137,17 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   };
 
   const playTrackAtIndex = (index: number) => {
+    if (isPlaying) {
+      autoAdvanceRef.current = true;
+    }
     setCurrentIndex(index);
   };
 
   const currentTrack = tracks[currentIndex];
-  const isVideo = currentTrack?.match(/\.(mp4|webm|mov|ogg)($|\?)/i);
-  const isImage = currentTrack?.match(/\.(jpg|jpeg|png|gif|webp|bmp)($|\?)/i);
+  const isVideo = !!currentTrack?.match(/\.(mp4|webm|mov|ogg)($|\?)/i);
+  const isImage = !!currentTrack?.match(/\.(jpg|jpeg|png|gif|webp|bmp)($|\?)/i);
   const currentType = isVideo ? 'video' : isImage ? 'image' : 'audio';
-  const isPlayableMedia = currentType === 'video' || currentType === 'audio';
+  const isPlayableMedia = currentType === 'video' || currentType === 'audio' || currentType === 'image';
 
   const formatTime = (timeInSec: number) => {
     if (!Number.isFinite(timeInSec) || timeInSec < 0) return '0:00';
@@ -147,8 +157,23 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   };
 
   const togglePlayPause = () => {
+    if (currentType === 'image') {
+      if (isPlaying) {
+        // пауза: останавливаем таймеры, сохраняем прогресс
+        if (imageIntervalRef.current) clearInterval(imageIntervalRef.current);
+        if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
+        imageIntervalRef.current = null;
+        imageTimerRef.current = null;
+        setIsPlaying(false);
+      } else {
+        // возобновление: запускаем таймер с текущей позиции
+        setIsPlaying(true);
+        startImageTimer(imageElapsedRef.current, currentIndex);
+      }
+      return;
+    }
     const mediaEl = mediaRef.current;
-    if (!mediaEl || currentType === 'image') return;
+    if (!mediaEl) return;
 
     if (mediaEl.paused) {
       mediaEl.play().catch((e) => console.error('Playback failed', e));
@@ -158,8 +183,12 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   };
 
   const handleSeek = (value: number) => {
+    if (currentType === 'image') {
+      startImageTimer(Math.floor(value), currentIndex);
+      return;
+    }
     const mediaEl = mediaRef.current;
-    if (!mediaEl || !Number.isFinite(duration) || duration <= 0 || currentType === 'image') return;
+    if (!mediaEl || !Number.isFinite(duration) || duration <= 0) return;
     mediaEl.currentTime = value;
     setCurrentTime(value);
   };
@@ -182,12 +211,69 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     setIsMuted(nextMuted);
   };
 
+  const IMAGE_DISPLAY_SECONDS = 10;
+
+  const TICK_MS = 100;
+
+  const startImageTimer = (fromSeconds: number, forIndex: number) => {
+    console.log('[ImageTimer] startImageTimer called, fromSeconds:', fromSeconds, 'forIndex:', forIndex, 'time:', Date.now());
+    if (imageIntervalRef.current) clearInterval(imageIntervalRef.current);
+    if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
+
+    imageElapsedRef.current = fromSeconds;
+    setCurrentTime(fromSeconds);
+    setImageCountdown(Math.ceil(IMAGE_DISPLAY_SECONDS - fromSeconds));
+
+    const remaining = (IMAGE_DISPLAY_SECONDS - fromSeconds) * 1000;
+    console.log('[ImageTimer] remaining ms:', remaining);
+
+    imageIntervalRef.current = setInterval(() => {
+      imageElapsedRef.current = Math.min(
+        imageElapsedRef.current + TICK_MS / 1000,
+        IMAGE_DISPLAY_SECONDS
+      );
+      setCurrentTime(imageElapsedRef.current);
+      setImageCountdown(Math.ceil(IMAGE_DISPLAY_SECONDS - imageElapsedRef.current));
+      if (imageElapsedRef.current >= IMAGE_DISPLAY_SECONDS) {
+        clearInterval(imageIntervalRef.current!);
+      }
+    }, TICK_MS);
+
+    imageTimerRef.current = setTimeout(() => {
+      console.log('[ImageTimer] setTimeout FIRED, forIndex:', forIndex, 'time:', Date.now());
+      setCurrentIndex(prev => {
+        console.log('[ImageTimer] setCurrentIndex updater, prev:', prev, 'forIndex:', forIndex);
+        if (prev !== forIndex) {
+          console.log('[ImageTimer] BLOCKED — prev !== forIndex');
+          return prev;
+        }
+        autoAdvanceRef.current = true;
+        return prev + 1;
+      });
+    }, remaining);
+  };
+
   useEffect(() => {
-    if (isImage && currentIndex < tracks.length - 1) {
-      const timer = setTimeout(() => {
-        setCurrentIndex(currentIndex + 1);
-      }, 10000);
-      return () => clearTimeout(timer);
+    if (isImage) {
+      setImageCountdown(IMAGE_DISPLAY_SECONDS);
+      setDuration(IMAGE_DISPLAY_SECONDS);
+      setIsPlaying(true);
+      startImageTimer(0, currentIndex);
+
+      return () => {
+        if (imageIntervalRef.current) clearInterval(imageIntervalRef.current);
+        if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
+        setImageCountdown(null);
+        setIsPlaying(false);
+      };
+    } else {
+      if (imageIntervalRef.current) clearInterval(imageIntervalRef.current);
+      if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
+      setImageCountdown(null);
+      if (currentType !== 'image') {
+        setDuration(0);
+        setCurrentTime(0);
+      }
     }
   }, [currentIndex, isImage, tracks.length]);
 
@@ -195,8 +281,10 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     const mediaEl = mediaRef.current;
     if (!mediaEl || currentType === 'image') {
       setIsPlaying(false);
-      setCurrentTime(0);
-      setDuration(0);
+      if (currentType !== 'image') {
+        setCurrentTime(0);
+        setDuration(0);
+      }
       return;
     }
 
@@ -209,14 +297,40 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       setVolume(mediaEl.volume);
       setIsMuted(mediaEl.muted);
     };
+    const onCanPlay = () => {
+      if (autoAdvanceRef.current) {
+        autoAdvanceRef.current = false;
+        setIsPlaying(true);
+        mediaEl.play().catch((e) => {
+          setIsPlaying(false);
+          console.error('Autoplay failed', e);
+        });
+      }
+    };
+    const onEnded = () => {
+      if (currentIndex >= tracks.length - 1) return;
+      autoAdvanceRef.current = true;
+      setCurrentIndex(currentIndex + 1);
+    };
 
     mediaEl.addEventListener('play', onPlay);
     mediaEl.addEventListener('pause', onPause);
     mediaEl.addEventListener('timeupdate', onTimeUpdate);
     mediaEl.addEventListener('loadedmetadata', onLoadedMetadata);
     mediaEl.addEventListener('durationchange', onLoadedMetadata);
+    mediaEl.addEventListener('canplay', onCanPlay);
+    mediaEl.addEventListener('ended', onEnded);
 
     onLoadedMetadata();
+    // если флаг уже выставлен (переход автоматический), сразу пробуем играть
+    if (autoAdvanceRef.current) {
+      autoAdvanceRef.current = false;
+      setIsPlaying(true);
+      mediaEl.play().catch((e) => {
+        setIsPlaying(false);
+        console.error('Autoplay failed', e);
+      });
+    }
 
     return () => {
       mediaEl.removeEventListener('play', onPlay);
@@ -224,6 +338,8 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       mediaEl.removeEventListener('timeupdate', onTimeUpdate);
       mediaEl.removeEventListener('loadedmetadata', onLoadedMetadata);
       mediaEl.removeEventListener('durationchange', onLoadedMetadata);
+      mediaEl.removeEventListener('canplay', onCanPlay);
+      mediaEl.removeEventListener('ended', onEnded);
     };
   }, [currentTrack, currentType]);
 

@@ -18,6 +18,14 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showOverlayMenu, setShowOverlayMenu] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(message);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  };
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -80,7 +88,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       })
       .then((text) => {
         const lines = text
-          .split('\n')
+          .split(/\r\n|\r|\n/)
           .map((l) => l.trim())
           .filter((l) => l.length > 0 && !l.startsWith('#'));
 
@@ -180,6 +188,26 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     } else {
       mediaEl.pause();
     }
+  };
+
+  const handleStop = () => {
+    if (currentType === 'image') {
+      if (imageIntervalRef.current) clearInterval(imageIntervalRef.current);
+      if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
+      imageIntervalRef.current = null;
+      imageTimerRef.current = null;
+      imageElapsedRef.current = 0;
+      setCurrentTime(0);
+      setImageCountdown(IMAGE_DISPLAY_SECONDS);
+      setIsPlaying(false);
+      return;
+    }
+    const mediaEl = mediaRef.current;
+    if (!mediaEl) return;
+    mediaEl.pause();
+    mediaEl.currentTime = 0;
+    setCurrentTime(0);
+    setIsPlaying(false);
   };
 
   const handleSeek = (value: number) => {
@@ -298,6 +326,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       setIsMuted(mediaEl.muted);
     };
     const onCanPlay = () => {
+      setError(null);
       if (autoAdvanceRef.current) {
         autoAdvanceRef.current = false;
         setIsPlaying(true);
@@ -306,6 +335,17 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
           console.error('Autoplay failed', e);
         });
       }
+    };
+    const onMediaError = () => {
+      const code = mediaEl.error?.code;
+      if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+        showToast('Формат не поддерживается браузером');
+      } else if (code === MediaError.MEDIA_ERR_NETWORK) {
+        showToast('Ошибка сети: не удалось загрузить файл');
+      } else if (code) {
+        showToast('Ошибка воспроизведения');
+      }
+      setIsPlaying(false);
     };
     const onEnded = () => {
       if (currentIndex >= tracks.length - 1) return;
@@ -320,8 +360,11 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     mediaEl.addEventListener('durationchange', onLoadedMetadata);
     mediaEl.addEventListener('canplay', onCanPlay);
     mediaEl.addEventListener('ended', onEnded);
+    mediaEl.addEventListener('error', onMediaError);
 
     onLoadedMetadata();
+    setError(null);
+    setToast(null);
     // если флаг уже выставлен (переход автоматический), сразу пробуем играть
     if (autoAdvanceRef.current) {
       autoAdvanceRef.current = false;
@@ -340,6 +383,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
       mediaEl.removeEventListener('durationchange', onLoadedMetadata);
       mediaEl.removeEventListener('canplay', onCanPlay);
       mediaEl.removeEventListener('ended', onEnded);
+      mediaEl.removeEventListener('error', onMediaError);
     };
   }, [currentTrack, currentType]);
 
@@ -554,6 +598,19 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
         )}
       </div>
 
+      {toast && (
+        <div className={`flex items-center gap-2 px-3 py-2 text-sm ${
+          isFullscreen
+            ? 'bg-red-900/60 text-red-300 border-t border-red-500/20'
+            : 'bg-red-50 text-red-500 border border-red-100 rounded-none'
+        }`}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {toast}
+        </div>
+      )}
+
       <div
         className={`flex items-center gap-2 ${
           isFullscreen
@@ -601,6 +658,23 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
           ) : (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
           )}
+        </button>
+
+        <button
+          onClick={handleStop}
+          disabled={!isPlayableMedia}
+          title="Стоп"
+          className={`p-2 rounded border transition-colors ${
+            isPlayableMedia
+              ? isFullscreen
+                ? 'bg-white/10 hover:bg-white/20 border-white/20'
+                : 'bg-white hover:bg-gray-200 border-gray-300'
+              : isFullscreen
+              ? 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed'
+              : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="1" /></svg>
         </button>
 
         {tracks.length > 1 && (

@@ -20,6 +20,14 @@ const downloadConfig = new Configuration({
 });
 const messagesApi = new MessagesApi(restConfig);
 const downloadApi = new DownloadApi(downloadConfig);
+
+function getLogicalFilePath(file: any): string | undefined {
+  if (!file) {
+    return undefined;
+  }
+  return file.filePath ?? file.metadata?.filePath;
+}
+
 export async function getActiveFiddIds(): Promise<string[]> {
   try {
     const response = await fetch('/instances');
@@ -42,58 +50,92 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
       try {
         const logicalFilesResponse = await fetch(`/api/v1/${fiddId}/messages/${messageNumber}/logical-files`);
         if (!logicalFilesResponse.ok) {
-          throw new Error('Failed to fetch logical files');
+          throw new Error(`Failed to fetch logical files for ${fiddId}/${messageNumber}: ${logicalFilesResponse.status}`);
         }
         const logicalFiles: any[] = await logicalFilesResponse.json();
         // console.log(`[getPostsForFidd] logicalFiles for ${messageNumber}:`, logicalFiles.map(f => f.filePath));
         const configFile = logicalFiles.find(f => {
-          const path = f.filePath?.toLowerCase() || '';
+          const path = getLogicalFilePath(f)?.toLowerCase() || '';
           return path === 'config.json' || path === '/config.json' || path.endsWith('/config.json');
         });
-        if (!configFile) {
-          // console.log(`[getPostsForFidd] config.json not found in message ${messageNumber}`);
-          continue;
+        let postConfig: any = {};
+
+        const configPath = getLogicalFilePath(configFile);
+        if (configPath) {
+          try {
+            const configBlob = await downloadApi.readLogicalFile({
+              fiddId,
+              messageNumber,
+              logicalFilePath: configPath
+            });
+            const configText = await configBlob.text();
+            postConfig = JSON.parse(configText);
+          } catch (configErr) {
+            console.warn(`[getPostsForFidd] Invalid config.json in message ${messageNumber}:`, configErr);
+          }
         }
-        const configPath = configFile.filePath || 'config.json';
-        // console.log(`[getPostsForFidd] configPath=${configPath}`);
-        const configBlob = await downloadApi.readLogicalFile({
-          fiddId,
-          messageNumber,
-          logicalFilePath: configPath
-        });
-        const configText = await configBlob.text();
-        const postConfig = JSON.parse(configText);
-        const metadata = await messagesApi.getFiddFileMetadata({ fiddId, messageNumber });
+
+        let metadata: any = null;
+        try {
+          const metadataResponse = await fetch(`/api/v1/${fiddId}/messages/${messageNumber}/metadata`);
+          if (metadataResponse.ok) {
+            metadata = await metadataResponse.json();
+          }
+        } catch (metaErr) {
+          console.warn(`[getPostsForFidd] Metadata unavailable for ${fiddId}/${messageNumber}:`, metaErr);
+        }
         const files = logicalFiles
-          .map(f => f.filePath)
+          .map(f => getLogicalFilePath(f))
           .filter((filePath: unknown): filePath is string => typeof filePath === 'string' && filePath.length > 0);
-        const postFileName = postConfig.post || 'README.md';
+        const postFileName = typeof postConfig.post === 'string' ? postConfig.post : 'README.md';
         const actualPostFile = logicalFiles.find(f => 
-          f.filePath?.toLowerCase() === postFileName.toLowerCase() || f.filePath?.toLowerCase() === 'post.md'
+          getLogicalFilePath(f)?.toLowerCase() === postFileName.toLowerCase() || getLogicalFilePath(f)?.toLowerCase() === 'post.md'
         );
-        const postFilePath = actualPostFile?.filePath;
+        const fallbackMarkdownFile = logicalFiles.find(f => {
+          const path = (getLogicalFilePath(f) || '').toLowerCase();
+          return path.endsWith('.md') || path.endsWith('.markdown');
+        });
+        const postFilePath = getLogicalFilePath(actualPostFile) || getLogicalFilePath(fallbackMarkdownFile);
         let content = '';
         if (postFilePath) {
-          const contentBlob = await downloadApi.readLogicalFile({
-            fiddId,
-            messageNumber,
-            logicalFilePath: postFilePath
-          });
-          content = await contentBlob.text();
+          try {
+            const contentBlob = await downloadApi.readLogicalFile({
+              fiddId,
+              messageNumber,
+              logicalFilePath: postFilePath
+            });
+            content = await contentBlob.text();
+          } catch (contentErr) {
+            console.warn(`[getPostsForFidd] Post content unavailable for ${fiddId}/${messageNumber}:`, contentErr);
+          }
         }
-        const createdAtDate = metadata.messageCreationTime
+        const createdAtDate = metadata?.messageCreationTime
           ? new Date(metadata.messageCreationTime).toLocaleDateString('ru-RU')
           : 'unknown';
-        const author = metadata.authorsPublicKey
+        const author = metadata?.authorsPublicKey
           ? metadata.authorsPublicKey.slice(0, 8) + '...'
           : 'unknown';
+
+        const firstNonEmptyLine = content
+          .split('\n')
+          .map(line => line.trim())
+          .find(line => line.length > 0 && !line.startsWith('#'));
+
+        const title = typeof postConfig.title === 'string' && postConfig.title.trim().length > 0
+          ? postConfig.title
+          : (firstNonEmptyLine || `Post ${messageNumber}`);
+
         let summaryText = '';
         if (postConfig.preview) {
           const actualPreviewFile = logicalFiles.find(f =>
-            f.filePath?.toLowerCase() === postConfig.preview.toLowerCase()
+            getLogicalFilePath(f)?.toLowerCase() === postConfig.preview.toLowerCase()
           );
-          const previewPath = actualPreviewFile?.filePath || postConfig.preview;
-          summaryText = await (await downloadApi.readLogicalFile({ fiddId, messageNumber, logicalFilePath: previewPath })).text();
+          const previewPath = getLogicalFilePath(actualPreviewFile) || postConfig.preview;
+          try {
+            summaryText = await (await downloadApi.readLogicalFile({ fiddId, messageNumber, logicalFilePath: previewPath })).text();
+          } catch (previewErr) {
+            console.warn(`[getPostsForFidd] Preview unavailable for ${fiddId}/${messageNumber}:`, previewErr);
+          }
         } else if (postConfig.description) {
           summaryText = postConfig.description;
         } else {
@@ -109,14 +151,14 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
           }
         }
         let coverPath = postConfig.image || postConfig.cover;
-        const coverExists = logicalFiles.some(f => f.filePath?.toLowerCase() === coverPath?.toLowerCase());
+        const coverExists = logicalFiles.some(f => getLogicalFilePath(f)?.toLowerCase() === coverPath?.toLowerCase());
         if (!coverPath || !coverExists) {
           const imageFile = logicalFiles.find(f => {
-            const p = f.filePath?.toLowerCase() || '';
+            const p = getLogicalFilePath(f)?.toLowerCase() || '';
             return p.endsWith('.png') || p.endsWith('.jpg') || p.endsWith('.jpeg') || p.endsWith('.webp');
           });
           if (imageFile) {
-            coverPath = imageFile.filePath;
+            coverPath = getLogicalFilePath(imageFile);
           } else {
             coverPath = undefined; 
           }
@@ -128,7 +170,7 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
         // console.log(`[getPostsForFidd] Pushing post from ${messageNumber}`, postConfig.title);
         posts.push({
           id: `${fiddId}_${messageNumber}`,
-          title: postConfig.title,
+          title,
           author,
           content,
           summary: summaryText || 'Здесь пока нет текста...', 
@@ -143,7 +185,7 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
         continue;
       }
     }
-    // console.log(`[getPostsForFidd] Returning posts:`, posts);
+    console.info(`[getPostsForFidd] ${fiddId}: loaded ${posts.length} posts from ${messageNumbers.length} messages`);
     return posts;
   } catch (err) {
     console.error(`[getPostsForFidd] Error in getPostsForFidd:`, err);

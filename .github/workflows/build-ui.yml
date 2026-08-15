@@ -32,8 +32,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build project (Vite)
+      - name: Build project
         run: npm run build
+
+      - name: Copy SPA inside of  FiddView resources
+        run: |
+          mkdir -p ../Fidd/FiddView/src/main/resources/spa
+          cp -r dist/. ../Fidd/FiddView/src/main/resources/spa/
 
       - name: Create ZIP archive
         run: |

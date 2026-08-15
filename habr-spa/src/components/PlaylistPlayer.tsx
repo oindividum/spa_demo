@@ -20,6 +20,9 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [errorCountdown, setErrorCountdown] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const errorCountdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showToast = (message: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -145,9 +148,7 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
   };
 
   const playTrackAtIndex = (index: number) => {
-    if (isPlaying) {
-      autoAdvanceRef.current = true;
-    }
+    autoAdvanceRef.current = true;
     setCurrentIndex(index);
   };
 
@@ -336,14 +337,38 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
         });
       }
     };
+    const startErrorCountdown = (message: string) => {
+      if (errorCountdownIntervalRef.current) clearInterval(errorCountdownIntervalRef.current);
+      setErrorMessage(message);
+      setErrorCountdown(5);
+      let remaining = 5;
+      errorCountdownIntervalRef.current = setInterval(() => {
+        remaining -= 1;
+        setErrorCountdown(remaining);
+        if (remaining <= 0) {
+          clearInterval(errorCountdownIntervalRef.current!);
+          errorCountdownIntervalRef.current = null;
+          setErrorCountdown(null);
+          setErrorMessage(null);
+          setCurrentIndex(prev => {
+            if (prev < tracks.length - 1) {
+              autoAdvanceRef.current = true;
+              return prev + 1;
+            }
+            return prev;
+          });
+        }
+      }, 1000);
+    };
+
     const onMediaError = () => {
       const code = mediaEl.error?.code;
       if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
-        showToast('Формат не поддерживается браузером');
+        startErrorCountdown('Формат не поддерживается браузером');
       } else if (code === MediaError.MEDIA_ERR_NETWORK) {
-        showToast('Ошибка сети: не удалось загрузить файл');
+        startErrorCountdown('Ошибка сети: не удалось загрузить файл');
       } else if (code) {
-        showToast('Ошибка воспроизведения');
+        startErrorCountdown('Ошибка воспроизведения');
       }
       setIsPlaying(false);
     };
@@ -365,6 +390,10 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     onLoadedMetadata();
     setError(null);
     setToast(null);
+    if (errorCountdownIntervalRef.current) clearInterval(errorCountdownIntervalRef.current);
+    errorCountdownIntervalRef.current = null;
+    setErrorCountdown(null);
+    setErrorMessage(null);
     // если флаг уже выставлен (переход автоматический), сразу пробуем играть
     if (autoAdvanceRef.current) {
       autoAdvanceRef.current = false;
@@ -376,6 +405,10 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
     }
 
     return () => {
+      if (errorCountdownIntervalRef.current) clearInterval(errorCountdownIntervalRef.current);
+      errorCountdownIntervalRef.current = null;
+      setErrorCountdown(null);
+      setErrorMessage(null);
       mediaEl.removeEventListener('play', onPlay);
       mediaEl.removeEventListener('pause', onPause);
       mediaEl.removeEventListener('timeupdate', onTimeUpdate);
@@ -598,16 +631,29 @@ export const PlaylistPlayer = ({ m3uUrl, basePath }: PlaylistPlayerProps) => {
         )}
       </div>
 
-      {toast && (
-        <div className={`flex items-center gap-2 px-3 py-2 text-sm ${
+      {(toast || errorCountdown !== null) && (
+        <div className={`text-sm ${
           isFullscreen
             ? 'bg-red-900/60 text-red-300 border-t border-red-500/20'
             : 'bg-red-50 text-red-500 border border-red-100 rounded-none'
         }`}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          {toast}
+          <div className="flex items-center gap-2 px-3 py-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {errorCountdown !== null
+              ? <span>{errorMessage}. Переход через {errorCountdown} сек...</span>
+              : toast
+            }
+          </div>
+          {errorCountdown !== null && (
+            <div className={`h-1 ${isFullscreen ? 'bg-red-950' : 'bg-red-100'}`}>
+              <div
+                className="h-full bg-red-500 transition-all duration-1000 ease-linear"
+                style={{ width: `${((5 - errorCountdown) / 5) * 100}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 

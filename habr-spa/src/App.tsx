@@ -5,7 +5,7 @@ import './App.css'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 
-import Home from './pages/Home';
+import HomeNew from './pages/HomeNew';
 import PostPage from './pages/PostPage';
 
 function App() {
@@ -13,7 +13,7 @@ function App() {
  <BrowserRouter>
  <div className="min-h-screen bg-gray-50">
   <Routes>
-    <Route path="/" element={<Home />} />
+    <Route path="/" element={<HomeNew />} />
     <Route path="/index.html" element={<Navigate to="/" replace />} />
     <Route path="/index.html/" element={<Navigate to="/" replace />} />
     <Route path="/post/:id" element={<PostPage />} />

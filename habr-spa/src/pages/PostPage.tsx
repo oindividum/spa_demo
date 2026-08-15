@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import type { Post } from '../types/Post';
 import { buildFlatTree } from '../utils/fileTree';
 import { PlaylistPlayer } from '../components/PlaylistPlayer';
+import HeaderNew from '../components/HeaderNew';
 
 const PostPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -190,7 +191,9 @@ const PostPage = () => {
 
   if (isDirectory) {
     return (
-      <div className="max-w-2xl mx-auto mt-8 px-4 pb-12">
+      <div style={{ backgroundColor: '#292B2F' }} className="min-h-screen">
+        <HeaderNew />
+        <div className="max-w-2xl mx-auto mt-[100px] px-4 pb-12">
         <div className="bg-white rounded-xl shadow-md p-8 mb-6">
           <h1 className="text-3xl font-bold mb-4 text-center text-gray-900">{post.title}</h1>
           <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
@@ -210,12 +213,15 @@ const PostPage = () => {
         <div className="w-full">
           {directoryPanel}
         </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6 mt-8 px-4 items-start pb-12">
+    <div style={{ backgroundColor: '#292B2F' }} className="min-h-screen">
+      <HeaderNew />
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6 mt-[100px] px-4 items-start pb-12">
      
       <article className="flex-1 w-full bg-white rounded-xl shadow-md p-8 min-w-0">
         <h1 className="text-3xl font-bold mb-4 text-gray-900">{post.title}</h1>
@@ -320,7 +326,8 @@ const PostPage = () => {
           {directoryPanel}
         </aside>
       )}
-  </div>
+      </div>
+    </div>
   );
 };
 

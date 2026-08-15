@@ -8,6 +8,9 @@ export interface Post {
     createdAt: string;
     tags: string[];
     views: number;
+    likes?: number;
+    comments?: number;
+    private?: boolean;
     imageUrl?: string; // url обложки поста
     files: string[]; 
 }

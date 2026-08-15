@@ -27,8 +27,23 @@ const PostPage = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div className="text-center text-gray-500 mt-8">Загрузка...</div>;
-  if (error) return <div className="text-center text-red-500 mt-8">{error}</div>;
+  if (loading) {
+    return (
+      <div style={{ backgroundColor: '#292B2F' }} className="min-h-screen pt-[71px]">
+        <HeaderNew />
+        <div className="text-center text-gray-300 pt-8">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ backgroundColor: '#292B2F' }} className="min-h-screen pt-[71px]">
+        <HeaderNew />
+        <div className="text-center text-red-400 pt-8">{error}</div>
+      </div>
+    );
+  }
   if (!post) return null;
 
   const getFileIcon = (filename: string) => {
@@ -45,7 +60,7 @@ const PostPage = () => {
   const m3uFile = post.files?.find(f => f.toLowerCase().endsWith('.m3u'));
 
   const directoryPanel = post.files && post.files.length > 0 ? (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-8">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-[83px]">
       <div className="flex items-center justify-between mb-4 pb-2">
         <h3 className="text-xl font-medium text-black">/</h3>
         <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,9 +206,9 @@ const PostPage = () => {
 
   if (isDirectory) {
     return (
-      <div style={{ backgroundColor: '#292B2F' }} className="min-h-screen">
+      <div style={{ backgroundColor: '#292B2F' }} className="min-h-screen pt-[71px]">
         <HeaderNew />
-        <div className="max-w-2xl mx-auto mt-[100px] px-4 pb-12">
+        <div className="max-w-2xl mx-auto px-4 pb-12">
         <div className="bg-white rounded-xl shadow-md p-8 mb-6">
           <h1 className="text-3xl font-bold mb-4 text-center text-gray-900">{post.title}</h1>
           <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
@@ -219,9 +234,9 @@ const PostPage = () => {
   }
 
   return (
-    <div style={{ backgroundColor: '#292B2F' }} className="min-h-screen">
+    <div style={{ backgroundColor: '#292B2F' }} className="min-h-screen pt-[71px]">
       <HeaderNew />
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6 mt-[100px] px-4 items-start pb-12">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6 px-4 items-start pb-12">
      
       <article className="flex-1 w-full bg-white rounded-xl shadow-md p-8 min-w-0">
         <h1 className="text-3xl font-bold mb-4 text-gray-900">{post.title}</h1>

@@ -11,7 +11,7 @@ import PostPage from './pages/PostPage';
 function App() {
    return (
  <BrowserRouter>
- <div className="min-h-screen bg-gray-50">
+ <div className="min-h-screen bg-[#292B2F]">
   <Routes>
     <Route path="/" element={<HomeNew />} />
     <Route path="/index.html" element={<Navigate to="/" replace />} />

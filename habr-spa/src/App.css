@@ -1,7 +1,13 @@
 /* Basic styles for habr-spa. You can customize or extend as needed. */
+html,
+body,
+#root {
+  min-height: 100%;
+  background: #292b2f;
+}
+
 body {
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-  background: #f8fafc;
   margin: 0;
   padding: 0;
 }

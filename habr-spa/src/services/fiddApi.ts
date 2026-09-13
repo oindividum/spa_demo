@@ -44,15 +44,23 @@ export async function getActiveFiddIds(): Promise<string[]> {
 export async function getPostsForFidd(fiddId: string, count: number = 10): Promise<Post[]> {
   try {
     const messageNumbers = await messagesApi.getMessageNumbersTail({ fiddId, count });
+    
+    
+    
     // console.log(`[getPostsForFidd] fiddId=${fiddId}, messageNumbers=`, messageNumbers);
     const posts: Post[] = [];
     for (const messageNumber of messageNumbers) {
       try {
         const logicalFilesResponse = await fetch(`/api/v1/${fiddId}/messages/${messageNumber}/logical-files`);
         if (!logicalFilesResponse.ok) {
+          
           throw new Error(`Failed to fetch logical files for ${fiddId}/${messageNumber}: ${logicalFilesResponse.status}`);
         }
+
         const logicalFiles: any[] = await logicalFilesResponse.json();
+
+
+
         // console.log(`[getPostsForFidd] logicalFiles for ${messageNumber}:`, logicalFiles.map(f => f.filePath));
         const configFile = logicalFiles.find(f => {
           const path = getLogicalFilePath(f)?.toLowerCase() || '';
@@ -62,9 +70,13 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
 
         const configPath = getLogicalFilePath(configFile);
         if (configPath) {
+
           try {
+
+
             const configBlob = await downloadApi.readLogicalFile({
               fiddId,
+
               messageNumber,
               logicalFilePath: configPath
             });
@@ -77,9 +89,12 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
 
         let metadata: any = null;
         try {
+
           const metadataResponse = await fetch(`/api/v1/${fiddId}/messages/${messageNumber}/metadata`);
           if (metadataResponse.ok) {
             metadata = await metadataResponse.json();
+          
+          
           }
         } catch (metaErr) {
           console.warn(`[getPostsForFidd] Metadata unavailable for ${fiddId}/${messageNumber}:`, metaErr);
@@ -126,18 +141,8 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
           : (firstNonEmptyLine || `Post ${messageNumber}`);
 
         let summaryText = '';
-        if (postConfig.preview) {
-          const actualPreviewFile = logicalFiles.find(f =>
-            getLogicalFilePath(f)?.toLowerCase() === postConfig.preview.toLowerCase()
-          );
-          const previewPath = getLogicalFilePath(actualPreviewFile) || postConfig.preview;
-          try {
-            summaryText = await (await downloadApi.readLogicalFile({ fiddId, messageNumber, logicalFilePath: previewPath })).text();
-          } catch (previewErr) {
-            console.warn(`[getPostsForFidd] Preview unavailable for ${fiddId}/${messageNumber}:`, previewErr);
-          }
-        } else if (postConfig.description) {
-          summaryText = postConfig.description;
+        if (typeof postConfig.description === 'string' && postConfig.description.trim().length > 0) {
+          summaryText = postConfig.description.trim();
         } else {
           const cleanContent = content
             .replace(/[#*`_>]/g, '')

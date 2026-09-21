@@ -17,12 +17,15 @@ import * as runtime from '../runtime';
 import type {
   FiddFileMetadata,
   LogicalFileInfo,
+  MessageInfo,
 } from '../models/index';
 import {
     FiddFileMetadataFromJSON,
     FiddFileMetadataToJSON,
     LogicalFileInfoFromJSON,
     LogicalFileInfoToJSON,
+    MessageInfoFromJSON,
+    MessageInfoToJSON,
 } from '../models/index';
 
 export interface GetFiddFileMetadataRequest {
@@ -31,6 +34,11 @@ export interface GetFiddFileMetadataRequest {
 }
 
 export interface GetLogicalFileInfosRequest {
+    fiddId: string;
+    messageNumber: number;
+}
+
+export interface GetMessageInfoRequest {
     fiddId: string;
     messageNumber: number;
 }
@@ -202,6 +210,59 @@ export class MessagesApi extends runtime.BaseAPI {
      */
     async getLogicalFileInfos(requestParameters: GetLogicalFileInfosRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<LogicalFileInfo>> {
         const response = await this.getLogicalFileInfosRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for getMessageInfo without sending the request
+     */
+    async getMessageInfoRequestOpts(requestParameters: GetMessageInfoRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['fiddId'] == null) {
+            throw new runtime.RequiredError(
+                'fiddId',
+                'Required parameter "fiddId" was null or undefined when calling getMessageInfo().'
+            );
+        }
+
+        if (requestParameters['messageNumber'] == null) {
+            throw new runtime.RequiredError(
+                'messageNumber',
+                'Required parameter "messageNumber" was null or undefined when calling getMessageInfo().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/{fiddId}/messages/{messageNumber}/info`;
+        urlPath = urlPath.replace(`{${"fiddId"}}`, encodeURIComponent(String(requestParameters['fiddId'])));
+        urlPath = urlPath.replace(`{${"messageNumber"}}`, encodeURIComponent(String(requestParameters['messageNumber'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Get combined Fidd file metadata and logical files for a message in one call
+     */
+    async getMessageInfoRaw(requestParameters: GetMessageInfoRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<MessageInfo>> {
+        const requestOptions = await this.getMessageInfoRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => MessageInfoFromJSON(jsonValue));
+    }
+
+    /**
+     * Get combined Fidd file metadata and logical files for a message in one call
+     */
+    async getMessageInfo(requestParameters: GetMessageInfoRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<MessageInfo> {
+        const response = await this.getMessageInfoRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

@@ -7,5 +7,6 @@ export * from './FiddSignature';
 export * from './FileRegion';
 export * from './LogicalFileInfo';
 export * from './LogicalFileMetadata';
+export * from './MessageInfo';
 export * from './ModelError';
 export * from './ProgressiveCrc';

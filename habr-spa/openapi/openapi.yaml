@@ -189,6 +189,26 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/v1/{fiddId}/messages/{messageNumber}/info:
+    get:
+      operationId: getMessageInfo
+      tags: [messages]
+      summary: Get combined Fidd file metadata and logical files for a message in one call
+      parameters:
+        - $ref: '#/components/parameters/FiddId'
+        - $ref: '#/components/parameters/MessageNumber'
+      responses:
+        '200':
+          description: Combined metadata and logical files
+          content:
+            application/json:
+              schema:
+                $ref: './schemas/MessageInfo.yaml'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   parameters:
     FiddId:

@@ -51,15 +51,10 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
     const posts: Post[] = [];
     for (const messageNumber of messageNumbers) {
       try {
-        const logicalFilesResponse = await fetch(`/api/v1/${fiddId}/messages/${messageNumber}/logical-files`);
-        if (!logicalFilesResponse.ok) {
-          
-          throw new Error(`Failed to fetch logical files for ${fiddId}/${messageNumber}: ${logicalFilesResponse.status}`);
-        }
-
-        const logicalFiles: any[] = await logicalFilesResponse.json();
-
-
+        // Single merged call instead of separate /logical-files + /metadata requests
+        const messageInfo = await messagesApi.getMessageInfo({ fiddId, messageNumber });
+        const logicalFiles = messageInfo.logicalFiles;
+        const metadata = messageInfo.metadata;
 
         // console.log(`[getPostsForFidd] logicalFiles for ${messageNumber}:`, logicalFiles.map(f => f.filePath));
         const configFile = logicalFiles.find(f => {
@@ -87,18 +82,6 @@ export async function getPostsForFidd(fiddId: string, count: number = 10): Promi
           }
         }
 
-        let metadata: any = null;
-        try {
-
-          const metadataResponse = await fetch(`/api/v1/${fiddId}/messages/${messageNumber}/metadata`);
-          if (metadataResponse.ok) {
-            metadata = await metadataResponse.json();
-          
-          
-          }
-        } catch (metaErr) {
-          console.warn(`[getPostsForFidd] Metadata unavailable for ${fiddId}/${messageNumber}:`, metaErr);
-        }
         const files = logicalFiles
           .map(f => getLogicalFilePath(f))
           .filter((filePath: unknown): filePath is string => typeof filePath === 'string' && filePath.length > 0);

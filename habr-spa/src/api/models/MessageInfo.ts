@@ -39,7 +39,7 @@ export interface MessageInfo {
      * @type {FiddFileMetadata}
      * @memberof MessageInfo
      */
-    metadata: FiddFileMetadata;
+    metadata?: FiddFileMetadata | null;
     /**
      * 
      * @type {Array<LogicalFileMetadata>}
@@ -52,7 +52,6 @@ export interface MessageInfo {
  * Check if a given object implements the MessageInfo interface.
  */
 export function instanceOfMessageInfo(value: object): value is MessageInfo {
-    if (!('metadata' in value) || value['metadata'] === undefined) return false;
     if (!('logicalFiles' in value) || value['logicalFiles'] === undefined) return false;
     return true;
 }
@@ -67,7 +66,7 @@ export function MessageInfoFromJSONTyped(json: any, ignoreDiscriminator: boolean
     }
     return {
         
-        'metadata': FiddFileMetadataFromJSON(json['metadata']),
+        'metadata': json['metadata'] == null ? undefined : FiddFileMetadataFromJSON(json['metadata']),
         'logicalFiles': ((json['logicalFiles'] as Array<any>).map(LogicalFileMetadataFromJSON)),
     };
 }
@@ -83,7 +82,7 @@ export function MessageInfoToJSONTyped(value?: MessageInfo | null, ignoreDiscrim
 
     return {
         
-        'metadata': FiddFileMetadataToJSON(value['metadata']),
+        'metadata': value['metadata'] == null ? undefined : FiddFileMetadataToJSON(value['metadata']),
         'logicalFiles': ((value['logicalFiles'] as Array<any>).map(LogicalFileMetadataToJSON)),
     };
 }

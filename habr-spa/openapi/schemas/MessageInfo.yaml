@@ -1,11 +1,11 @@
 type: object
 description: Combined Fidd file metadata and logical files for a single message
 required:
-  - metadata
   - logicalFiles
 properties:
   metadata:
     $ref: './FiddFileMetadata.yaml'
+    nullable: true
   logicalFiles:
     type: array
     items:
